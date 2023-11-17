@@ -4,7 +4,41 @@ document.addEventListener("click", function (event) {
   console.log("Click detected:", event.target);
 });
 
-// Function to create and inject the icon
+// Function to extract post content
+function getPostContent(commentBox) {
+  try {
+    const parentDiv = document.querySelector(
+      ".update-components-text.relative.update-components-update-v2__commentary"
+    );
+
+    if (parentDiv) {
+      // Navigate through the nested spans
+      // First, find the 'span' with class 'breakdown'
+      const breakdownSpan = parentDiv.querySelector(".break-words");
+
+      if (breakdownSpan) {
+        // Then, find the innermost 'span' with 'dir=ltr' within 'breakdownSpan'
+        const targetSpan = breakdownSpan.querySelector('span span[dir="ltr"]');
+
+        return targetSpan ? targetSpan.textContent.trim() : "";
+      } else {
+        console.error("Breakdown span not found");
+        return "";
+      }
+    } else {
+      console.error("Parent div not found");
+      return "";
+    }
+    // // You'll need to adjust the selector based on LinkedIn's post structure
+    // const postContainer = eventTarget.closest('.linkedin-post-selector');
+    // return postContainer ? postContainer.textContent.trim() : '';
+  } catch (error) {
+    console.error("Error extracting post content:", error);
+    return "";
+  }
+}
+
+// Function to inject the icon
 function injectIcon(commentBox) {
   try {
     if (!commentBox || commentBox.querySelector("#myExtensionIcon")) {
@@ -21,43 +55,6 @@ function injectIcon(commentBox) {
       iconElement.style.width = "20px";
       iconElement.style.height = "20px";
       iconElement.style.margin = "10px";
-      // Add more styling as needed
-
-      // Function to extract post content
-      function getPostContent(commentBox) {
-        try {
-          const parentDiv = document.querySelector(
-            ".update-components-text.relative.update-components-update-v2__commentary"
-          );
-
-          if (parentDiv) {
-            // Navigate through the nested spans
-            // First, find the 'span' with class 'breakdown'
-            const breakdownSpan = parentDiv.querySelector(".break-words");
-
-            if (breakdownSpan) {
-              // Then, find the innermost 'span' with 'dir=ltr' within 'breakdownSpan'
-              const targetSpan = breakdownSpan.querySelector(
-                'span span[dir="ltr"]'
-              );
-
-              return targetSpan ? targetSpan.textContent.trim() : "";
-            } else {
-              console.error("Breakdown span not found");
-              return "";
-            }
-          } else {
-            console.error("Parent div not found");
-            return "";
-          }
-          // // You'll need to adjust the selector based on LinkedIn's post structure
-          // const postContainer = eventTarget.closest('.linkedin-post-selector');
-          // return postContainer ? postContainer.textContent.trim() : '';
-        } catch (error) {
-          console.error("Error extracting post content:", error);
-          return "";
-        }
-      }
 
       // Function to create and show the popup
       function showPopup(eventTarget) {
@@ -78,7 +75,7 @@ function injectIcon(commentBox) {
         popup.style.left = `${iconRect.left + window.scrollX}px`;
 
         // Extract the content of the LinkedIn post
-        const postContent = getPostContent(eventTarget);
+        const postContent = findPostContent(commentBox);
 
         const tones = ["Happy", "Sad", "Angry", "Appreciative", "Curious"];
         const toneDescriptions = {
@@ -199,6 +196,52 @@ function injectIcon(commentBox) {
     console.error("Error in injectIcon function:", error);
   }
 }
+
+function findPostContent(commentBoxNode) {
+  // The common ancestor would likely be a 'div' or 'article' element that contains both the post content and the comments.
+  // This is an assumed class name for the common ancestor, and you will need to update it according to LinkedIn's actual DOM structure.
+  const commonAncestorSelector = ".ember-view.occludable-update";
+  const commonAncestorSelector2 =
+    ".feed-shared-update-v2.feed-shared-update-v2--minimal-padding.full-height.relative.feed-shared-update-v2--e2e.artdeco-card";
+  const postContentSelector =
+    ".update-components-text.relative.update-components-update-v2__commentary"; // This should target the element that directly contains the text of the post.
+
+  // Find the common ancestor element that contains the post content.
+  const commonAncestor =
+    commentBoxNode.closest(commonAncestorSelector) ||
+    commentBoxNode.closest(commonAncestorSelector2);
+  if (!commonAncestor) {
+    console.error("Unable to find the common ancestor element.");
+    return null;
+  }
+
+  // Now find the post content element within the common ancestor.
+  const postContentElement = commonAncestor.querySelector(postContentSelector);
+  if (!postContentElement) {
+    console.error("Unable to find the post content element.");
+    return null;
+  }
+  if (postContentElement) {
+    // Navigate through the nested spans
+    // First, find the 'span' with class 'breakdown'
+    const breakdownSpan = postContentElement.querySelector(".break-words");
+
+    if (breakdownSpan) {
+      // Then, find the innermost 'span' with 'dir=ltr' within 'breakdownSpan'
+      const targetSpan = breakdownSpan.querySelector('span span[dir="ltr"]');
+      if (targetSpan) {
+        return targetSpan ? targetSpan.textContent.trim() : "";
+      }
+    } else {
+      console.error("Breakdown span not found");
+      return "";
+    }
+  } else {
+    console.error("Parent div not found");
+    return "";
+  }
+}
+
 // Use MutationObserver to monitor dynamically added comment boxes
 const observer = new MutationObserver(function (mutations) {
   try {
@@ -207,7 +250,13 @@ const observer = new MutationObserver(function (mutations) {
         mutation.addedNodes.forEach(function (node) {
           // Check if the added node is a comment box or contains one
           if (node.matches && node.matches(".display-flex.mlA")) {
-            injectIcon(node);
+            const postContentElement = findPostContent(node);
+            if (postContentElement) {
+              console.log("PostContent:", postContentElement);
+              const postContent = postContentElement.textContent.trim();
+              // Pass the postContent to your injectIcon function or handle it however you need.
+              injectIcon(node, postContent);
+            }
           } else if (node.querySelectorAll) {
             const commentBoxes = node.querySelectorAll(".display-flex.mlA");
             commentBoxes.forEach(injectIcon);
